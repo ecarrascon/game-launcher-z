@@ -12,6 +12,7 @@
     </padding>
     <Label text="Game Launcher Z" style="-fx-font-size: 24px;"/>
     <Button fx:id="selectFolderButton" text="Select Game Folder"/>
+    <Button fx:id="selectShortcutsFolderButton" text="Select Shortcuts Folder"/>
     <ScrollPane fitToWidth="true" VBox.vgrow="ALWAYS">
         <VBox fx:id="gameListContainer" spacing="10"/>
     </ScrollPane>

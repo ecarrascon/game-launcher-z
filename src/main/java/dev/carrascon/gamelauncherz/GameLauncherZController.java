@@ -28,7 +28,12 @@ public class GameLauncherZController implements Initializable {
     @FXML
     private Button selectFolderButton;
 
+    @FXML
+    private Button selectShortcutsFolderButton;
+
     private static final String PLAYTIME_FILE = "playtime.properties";
+
+    private String shortcutsFolderPath;
 
     private String gamesFolderPath;
     private Map<String, Long> playtimeMap = new HashMap<>();
@@ -36,17 +41,41 @@ public class GameLauncherZController implements Initializable {
     @Override
     public void initialize(URL location, ResourceBundle resources) {
         loadPlaytimeData();
-        selectFolderButton.setOnAction(event -> openDirectoryChooser());
+        selectFolderButton.setOnAction(event -> openDirectoryChooser(false));
+        selectShortcutsFolderButton.setOnAction(event -> openDirectoryChooser(true));
     }
 
-    private void openDirectoryChooser() {
+
+    private void openDirectoryChooser(boolean isShortcutsFolder) {
         DirectoryChooser directoryChooser = new DirectoryChooser();
-        directoryChooser.setTitle("Select Game Folder");
+        directoryChooser.setTitle(isShortcutsFolder ? "Select Shortcuts Folder" : "Select Game Folder");
         Stage stage = (Stage) selectFolderButton.getScene().getWindow();
         File selectedDirectory = directoryChooser.showDialog(stage);
         if (selectedDirectory != null) {
-            gamesFolderPath = selectedDirectory.getAbsolutePath();
-            loadGameButtons();
+            if (isShortcutsFolder) {
+                shortcutsFolderPath = selectedDirectory.getAbsolutePath();
+                loadShortcutButtons();
+            } else {
+                gamesFolderPath = selectedDirectory.getAbsolutePath();
+                loadGameButtons();
+            }
+        }
+    }
+
+
+    private void loadShortcutButtons() {
+        if (shortcutsFolderPath == null) {
+            return;
+        }
+
+        gameListContainer.getChildren().clear();
+
+        try (Stream<Path> paths = Files.list(Paths.get(shortcutsFolderPath))) {
+            paths.filter(Files::isRegularFile)
+                    .filter(p -> p.toString().endsWith(".lnk"))
+                    .forEach(p -> createGameButton(p.getFileName().toString()));
+        } catch (IOException e) {
+            System.err.println("Error loading shortcut buttons: " + e.getMessage());
         }
     }
 
@@ -55,7 +84,15 @@ public class GameLauncherZController implements Initializable {
         try (FileInputStream fis = new FileInputStream(PLAYTIME_FILE)) {
             properties.load(fis);
             for (String key : properties.stringPropertyNames()) {
-                playtimeMap.put(key, Long.parseLong(properties.getProperty(key)));
+                if (key.startsWith("path.")) {
+                    if (key.equals("path.games")) {
+                        gamesFolderPath = properties.getProperty(key);
+                    } else if (key.equals("path.shortcuts")) {
+                        shortcutsFolderPath = properties.getProperty(key);
+                    }
+                } else {
+                    playtimeMap.put(key, Long.parseLong(properties.getProperty(key)));
+                }
             }
         } catch (IOException e) {
             System.err.println("Error loading playtime data: " + e.getMessage());
@@ -66,6 +103,12 @@ public class GameLauncherZController implements Initializable {
         Properties properties = new Properties();
         for (Map.Entry<String, Long> entry : playtimeMap.entrySet()) {
             properties.setProperty(entry.getKey(), String.valueOf(entry.getValue()));
+        }
+        if (gamesFolderPath != null) {
+            properties.setProperty("path.games", gamesFolderPath);
+        }
+        if (shortcutsFolderPath != null) {
+            properties.setProperty("path.shortcuts", shortcutsFolderPath);
         }
         try (FileOutputStream fos = new FileOutputStream(PLAYTIME_FILE)) {
             properties.store(fos, "Playtime data");
