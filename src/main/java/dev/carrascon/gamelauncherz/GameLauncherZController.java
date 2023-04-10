@@ -79,12 +79,22 @@ public class GameLauncherZController implements Initializable {
             return;
         }
 
-        gameListContainer.getChildren().clear(); // Add this line
+        gameListContainer.getChildren().clear();
 
-        try (Stream<Path> paths = Files.list(Paths.get(gamesFolderPath))) {
-            paths.filter(Files::isRegularFile)
-                    .filter(p -> p.toString().endsWith(".exe"))
-                    .forEach(p -> createGameButton(p.getFileName().toString()));
+        try (Stream<Path> folders = Files.list(Paths.get(gamesFolderPath))) {
+            folders.filter(Files::isDirectory)
+                    .forEach(folder -> {
+                        try (Stream<Path> files = Files.list(folder)) {
+                            files.filter(Files::isRegularFile)
+                                    .filter(file -> {
+                                        String fileName = file.getFileName().toString();
+                                        return fileName.endsWith(".exe") && !fileName.startsWith("Unity") && !fileName.startsWith("unins");
+                                    })
+                                    .forEach(file -> createGameButton(file.getFileName().toString()));
+                        } catch (IOException e) {
+                            System.err.println("Error loading game buttons: " + e.getMessage());
+                        }
+                    });
         } catch (IOException e) {
             System.err.println("Error loading game buttons: " + e.getMessage());
         }
